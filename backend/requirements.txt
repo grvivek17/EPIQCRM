@@ -7,4 +7,5 @@ python-multipart
 aiosmtplib
 python-dotenv
 Jinja2
+psycopg
 psycopg-binary

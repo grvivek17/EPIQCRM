@@ -11,6 +11,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
 
+  const [error, setError] = useState(null)
+
   useEffect(() => {
     Promise.all([
       dashboardApi.stats(),
@@ -18,10 +20,15 @@ export default function Dashboard() {
     ]).then(([s, inv]) => {
       setStats(s)
       setRecentInvoices(inv.slice(0, 6))
+    }).catch(err => {
+      console.error('API Error:', err)
+      setError(err.response?.data?.detail || err.message || 'Failed to fetch data')
     }).finally(() => setLoading(false))
   }, [])
 
   if (loading) return <LoadingSpinner />
+  if (error) return <div style={{ padding: 40, color: 'red', textAlign: 'center' }}><h2>Connection Error</h2><p>{error}</p><p>Please check if the Vercel backend environment variables are set correctly.</p></div>
+  if (!stats) return <LoadingSpinner />
 
   const chartData = [
     { name: 'Paid',    value: stats.total_paid,  color: '#22c55e' },
