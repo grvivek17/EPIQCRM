@@ -79,6 +79,30 @@ export default function Invoices() {
     } catch(e) { toast.error('Failed to create invoice') }
   }
 
+  const [sendingEmailId, setSendingEmailId] = useState(null)
+
+  const handleResendEmail = async (inv) => {
+    if (!inv.client?.email) {
+      toast.error('Client has no email address')
+      return
+    }
+    
+    setSendingEmailId(inv.id)
+    try {
+      await invoicesApi.sendEmail({
+        invoice_id: inv.id,
+        to_email: inv.client.email,
+        subject: `Invoice #${inv.invoice_number} from EPIQ INDIA`,
+        message: `Please find the details for Invoice #${inv.invoice_number} attached.`
+      })
+      toast.success('Invoice sent to ' + inv.client.email)
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to send invoice email')
+    } finally {
+      setSendingEmailId(null)
+    }
+  }
+
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this invoice?')) return
     await invoicesApi.delete(id)
@@ -146,7 +170,15 @@ export default function Invoices() {
                     <td>
                       <div className="client-actions">
                         <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setPreviewInvoice(inv)} title="Preview"><FileText size={14}/></button>
-                        <button className="btn btn-ghost btn-sm btn-icon" onClick={() => handleDelete(inv.id)} style={{color:'var(--danger)'}}><Trash2 size={14}/></button>
+                        <button 
+                          className="btn btn-ghost btn-sm btn-icon" 
+                          onClick={() => handleResendEmail(inv)} 
+                          disabled={sendingEmailId === inv.id}
+                          title="Resend Email"
+                        >
+                          {sendingEmailId === inv.id ? <div className="spinner" style={{width: 14, height: 14, borderWidth: 2}}></div> : <Send size={14} style={{color: 'var(--primary)'}}/>}
+                        </button>
+                        <button className="btn btn-ghost btn-sm btn-icon" onClick={() => handleDelete(inv.id)} style={{color:'var(--danger)'}} title="Delete"><Trash2 size={14}/></button>
                       </div>
                     </td>
                   </tr>
