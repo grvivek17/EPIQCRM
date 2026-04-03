@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { Plus, Building2, MapPin, Phone, Mail, Edit2, Trash2 } from 'lucide-react'
+import { Plus, Building2, MapPin, Phone, Mail, Edit2, Trash2, Upload } from 'lucide-react'
 import { clientsApi, statesApi } from '../services/api'
 import { LoadingSpinner, EmptyState, SearchInput } from '../components/ui'
 import Modal from '../components/Modal'
+import * as XLSX from 'xlsx'
+import { useRef } from 'react'
 
 export default function Clients() {
   const [clients, setClients] = useState([])
@@ -56,6 +58,55 @@ export default function Clients() {
   const openAdd = () => { setEditingClient(null); reset({}); setModalOpen(true) }
   const openEdit = (client) => { setEditingClient(client); reset(client); setModalOpen(true) }
 
+  const fileInputRef = useRef(null)
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = async (evt) => {
+      try {
+        setLoading(true)
+        const data = evt.target.result
+        const workbook = XLSX.read(data, { type: 'binary' })
+        const sheetName = workbook.SheetNames[0]
+        const worksheet = workbook.Sheets[sheetName]
+        const json = XLSX.utils.sheet_to_json(worksheet)
+        
+        let successCount = 0
+        let failCount = 0
+        for (const row of json) {
+          const payload = {
+            name: row['Company Name'] || row['name'] || row['Client Name'],
+            spoc_name: row['SPOC Name'] || row['spoc_name'] || row['SPOC'],
+            email: row['Email'] || row['email'],
+            phone: (row['Phone'] || row['phone'] || '').toString(),
+            gst_number: row['GST Number'] || row['gst_number'] || row['GST'] || '',
+            state: row['State'] || row['state'] || '',
+            address: row['Address'] || row['address'] || ''
+          }
+          if (payload.name && payload.spoc_name && payload.email) {
+            try {
+              await clientsApi.create(payload)
+              successCount++
+            } catch(e) {
+              failCount++
+            }
+          } else {
+            failCount++
+          }
+        }
+        toast.success(`Imported: ${successCount}. Failed/Skipped: ${failCount}.`)
+        fetchClients()
+      } catch (err) {
+        toast.error('Failed to parse excel file')
+        setLoading(false)
+      }
+      e.target.value = ''
+    }
+    reader.readAsBinaryString(file)
+  }
+
   const filtered = clients.filter(c => 
     c.name.toLowerCase().includes(search.toLowerCase()) || 
     c.spoc_name.toLowerCase().includes(search.toLowerCase())
@@ -67,9 +118,21 @@ export default function Clients() {
     <>
       <div className="page-toolbar">
         <SearchInput value={search} onChange={setSearch} placeholder="Search clients..." />
-        <button className="btn btn-primary" onClick={openAdd}>
-          <Plus size={16} /> Add Client
-        </button>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <input 
+            type="file" 
+            accept=".xlsx, .xls, .csv" 
+            style={{ display: 'none' }} 
+            ref={fileInputRef} 
+            onChange={handleFileUpload} 
+          />
+          <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()}>
+            <Upload size={16} /> Import Excel
+          </button>
+          <button className="btn btn-primary" onClick={openAdd}>
+            <Plus size={16} /> Add Client
+          </button>
+        </div>
       </div>
 
       {filtered.length === 0 ? (

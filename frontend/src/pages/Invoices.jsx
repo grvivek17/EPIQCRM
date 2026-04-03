@@ -114,6 +114,69 @@ export default function Invoices() {
     fetchInvoices()
   }
 
+  const [selectedInvoices, setSelectedInvoices] = useState(new Set())
+  const [sendingBulk, setSendingBulk] = useState(false)
+
+  const handleBulkEmail = async () => {
+    if (selectedInvoices.size === 0) return
+    setSendingBulk(true)
+    let successCount = 0
+    let failCount = 0
+    for (const invId of selectedInvoices) {
+      const inv = invoices.find(i => i.id === invId)
+      if (!inv || !inv.client?.email) {
+        failCount++
+        continue
+      }
+      try {
+        await invoicesApi.sendEmail({
+          invoice_id: inv.id,
+          to_email: inv.client.email,
+          subject: `Invoice #${inv.invoice_number} from EPIQ INDIA`,
+          message: `Please find the details for Invoice #${inv.invoice_number} attached.`
+        })
+        successCount++
+      } catch (e) {
+        failCount++
+      }
+    }
+    if (failCount === 0) toast.success(`Successfully sent ${successCount} emails`)
+    else toast.success(`Sent: ${successCount}, Failed: ${failCount}`)
+    setSelectedInvoices(new Set())
+    setSendingBulk(false)
+  }
+
+  const exportInvoiceSummary = () => {
+    try {
+      const rowData = [["Invoice Number", "Client Name", "Invoice Date", "Due Date", "Taxable Amount", "GST Amount", "Total Amount", "Status"]]
+      invoices.forEach(inv => {
+        rowData.push([
+          inv.invoice_number,
+          inv.client?.name || '-',
+          inv.invoice_date,
+          inv.due_date,
+          inv.subtotal || 0,
+          inv.gst_amount || 0,
+          inv.total || 0,
+          inv.status || 'due'
+        ])
+      })
+      const csvContent = rowData.map(e => e.map(item => `"${(item||'').toString().replace(/"/g, '""')}"`).join(",")).join("\n")
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.setAttribute("href", url)
+      link.setAttribute("download", `invoice_summary_${new Date().toISOString().split('T')[0]}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      toast.success("Report generated successfully")
+    } catch(e) {
+      toast.error("Failed to generate summary report")
+    }
+  }
+
   return (
     <>
       <div className="page-toolbar">
@@ -129,9 +192,24 @@ export default function Invoices() {
             {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
-        <button className="btn btn-primary" onClick={() => { reset(); setModalOpen(true) }}>
-          <Plus size={16}/> New Invoice
-        </button>
+        <div style={{ display: 'flex', gap: 12 }}>
+          {selectedInvoices.size > 0 && (
+            <button 
+              className="btn btn-secondary" 
+              onClick={handleBulkEmail}
+              disabled={sendingBulk}
+            >
+              {sendingBulk ? <div className="spinner" style={{width: 14, height: 14, borderWidth: 2}}></div> : <Send size={14}/>}
+              Send Mail ({selectedInvoices.size})
+            </button>
+          )}
+          <button className="btn btn-secondary" onClick={exportInvoiceSummary}>
+            <Download size={14} /> Export Report
+          </button>
+          <button className="btn btn-primary" onClick={() => { reset(); setModalOpen(true) }}>
+            <Plus size={16}/> New Invoice
+          </button>
+        </div>
       </div>
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -140,6 +218,17 @@ export default function Invoices() {
             <table>
               <thead>
                 <tr>
+                  <th style={{ width: 40, textAlign: 'center' }}>
+                    <input 
+                      type="checkbox" 
+                      style={{ cursor: 'pointer' }}
+                      onChange={(e) => {
+                        if (e.target.checked) setSelectedInvoices(new Set(invoices.map(i => i.id)))
+                        else setSelectedInvoices(new Set())
+                      }}
+                      checked={invoices.length > 0 && selectedInvoices.size === invoices.length}
+                    />
+                  </th>
                   <th>Number</th>
                   <th>Client</th>
                   <th>Date</th>
@@ -149,9 +238,22 @@ export default function Invoices() {
                 </tr>
               </thead>
               <tbody>
-                {invoices.length === 0 && <tr><td colSpan="6" style={{textAlign:'center', padding:40, color:'var(--text-muted)'}}>No invoices found.</td></tr>}
+                {invoices.length === 0 && <tr><td colSpan="7" style={{textAlign:'center', padding:40, color:'var(--text-muted)'}}>No invoices found.</td></tr>}
                 {invoices.map(inv => (
                   <tr key={inv.id}>
+                    <td style={{ textAlign: 'center' }}>
+                      <input 
+                        type="checkbox" 
+                        style={{ cursor: 'pointer' }}
+                        checked={selectedInvoices.has(inv.id)}
+                        onChange={(e) => {
+                          const newSet = new Set(selectedInvoices)
+                          if (e.target.checked) newSet.add(inv.id)
+                          else newSet.delete(inv.id)
+                          setSelectedInvoices(newSet)
+                        }}
+                      />
+                    </td>
                     <td className="td-mono">{inv.invoice_number}</td>
                     <td>{inv.client?.name}</td>
                     <td>
