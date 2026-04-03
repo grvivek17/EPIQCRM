@@ -172,6 +172,13 @@ export default function Invoices() {
                         <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setPreviewInvoice(inv)} title="Preview"><FileText size={14}/></button>
                         <button 
                           className="btn btn-ghost btn-sm btn-icon" 
+                          onClick={() => { setPreviewInvoice(inv); setTimeout(() => window.print(), 100); }} 
+                          title="Download PDF"
+                        >
+                          <Download size={14}/>
+                        </button>
+                        <button 
+                          className="btn btn-ghost btn-sm btn-icon" 
                           onClick={() => handleResendEmail(inv)} 
                           disabled={sendingEmailId === inv.id}
                           title="Resend Email"
@@ -249,7 +256,15 @@ export default function Invoices() {
       {/* Basic Preview logic for now */}
       <Modal isOpen={!!previewInvoice} onClose={() => setPreviewInvoice(null)} title={`Preview: ${previewInvoice?.invoice_number}`} size="modal-lg">
         {previewInvoice && (
-          <div style={{ padding: '40px', background: 'white', color: '#1a1a2e', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+          <div className="inv-preview" style={{ padding: '40px', background: 'white', color: '#1a1a2e', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+            <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
+              <button 
+                className="btn btn-primary btn-sm" 
+                onClick={() => window.print()}
+              >
+                <Download size={14} /> Download PDF
+              </button>
+            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <EpiqLogo size={64} />
@@ -261,7 +276,7 @@ export default function Invoices() {
               <div style={{ textAlign: 'right' }}>
                 <h2 style={{ margin: 0, fontSize: '32px', fontWeight: 800, color: '#1a1a2e' }}>INVOICE</h2>
                 <p style={{ margin: '4px 0', fontSize: '14px', color: '#555' }}><strong>#{previewInvoice.invoice_number}</strong></p>
-                <StatusBadge status={previewInvoice.status} />
+                <div className="no-print"><StatusBadge status={previewInvoice.status} /></div>
               </div>
             </div>
 

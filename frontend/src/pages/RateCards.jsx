@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { Plus, Edit2, Trash2 } from 'lucide-react'
+import { Plus, Edit2, Trash2, Download } from 'lucide-react'
 import { rateCardsApi, clientsApi } from '../services/api'
 import { LoadingSpinner, formatCurrency } from '../components/ui'
 import Modal from '../components/Modal'
@@ -73,6 +73,39 @@ export default function RateCards() {
   }
   const openEdit = (item) => { setEditingItem(item); reset(item); setModalOpen(true) }
 
+  const exportToCSV = async () => {
+    try {
+      setLoading(true)
+      const allClients = await clientsApi.list()
+      const rowData = [["Client Name", "SPOC", "Service / Role", "Category", "Unit", "Rate"]]
+      
+      const defaultRates = await rateCardsApi.listDefault()
+      defaultRates.forEach(r => rowData.push(['Default', '-', r.name, r.category, r.unit, r.rate]))
+      
+      for (const client of allClients) {
+        const clientRates = await rateCardsApi.listClient(client.id)
+        if (clientRates.length > 0) {
+          clientRates.forEach(r => rowData.push([client.name, client.spoc_name, r.name, r.category, r.unit, r.rate]))
+        }
+      }
+      
+      const csvContent = rowData.map(e => e.map(item => `"${(item||'').toString().replace(/"/g, '""')}"`).join(",")).join("\n")
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.setAttribute("href", url)
+      link.setAttribute("download", "rate_cards_mapping.csv")
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (e) {
+      toast.error('Failed to export data')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <>
       <div className="page-toolbar">
@@ -81,16 +114,22 @@ export default function RateCards() {
           <button className={`rate-tab ${activeTab === 'client' ? 'active' : ''}`} onClick={() => setActiveTab('client')}>Client Specific</button>
         </div>
         
-        {activeTab === 'client' && (
-          <select className="filter-select" value={selectedClient} onChange={e => setSelectedClient(e.target.value)}>
-            <option value="">-- Select Client --</option>
-            {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        )}
+        <div style={{ display: 'flex', gap: 12, marginLeft: 'auto' }}>
+          {activeTab === 'client' && (
+            <select className="filter-select" value={selectedClient} onChange={e => setSelectedClient(e.target.value)}>
+              <option value="">-- Select Client --</option>
+              {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          )}
 
-        <button className="btn btn-primary" onClick={openAdd} disabled={activeTab === 'client' && !selectedClient}>
-          <Plus size={16} /> Add Service
-        </button>
+          <button className="btn btn-secondary" onClick={exportToCSV}>
+            <Download size={14}/> Export CSV
+          </button>
+
+          <button className="btn btn-primary" onClick={openAdd} disabled={activeTab === 'client' && !selectedClient}>
+            <Plus size={16} /> Add Service
+          </button>
+        </div>
       </div>
 
       <div className="card">
