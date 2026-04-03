@@ -1,5 +1,5 @@
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Users, FileText, CreditCard } from 'lucide-react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { LayoutDashboard, Users, FileText, CreditCard, LogOut } from 'lucide-react'
 
 import EpiqLogo from './EpiqLogo'
 
@@ -19,7 +19,13 @@ const pageTitles = {
 
 export default function Layout() {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const title = pageTitles[pathname] || 'CRM'
+
+  const handleLogout = () => {
+    localStorage.removeItem('auth')
+    navigate('/login')
+  }
 
   return (
     <div className="app-shell">
@@ -41,12 +47,22 @@ export default function Layout() {
           ))}
         </nav>
         <div className="sidebar-footer">
-          <div className="user-card">
-            <div className="user-avatar">A</div>
-            <div>
-              <div className="user-name">Admin</div>
-              <div className="user-role">Super Admin</div>
+          <div className="user-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div className="user-avatar" style={{ background: 'var(--primary)' }}>S</div>
+              <div>
+                <div className="user-name">Santhosh</div>
+                <div className="user-role">Super Admin</div>
+              </div>
             </div>
+            <button 
+              className="btn btn-ghost btn-sm btn-icon" 
+              onClick={handleLogout} 
+              title="Logout"
+              style={{ padding: 6, color: 'var(--text-muted)' }}
+            >
+              <LogOut size={16} />
+            </button>
           </div>
         </div>
       </aside>
